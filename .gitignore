@@ -1,0 +1,46 @@
+# Ignore Visual Studio temporary and binary files
+.vscode/
+.vs/
+x64/
+x86/
+Debug/
+Release/
+*.obj
+*.pdb
+*.exe
+*.dll
+*.ilk
+*.idb
+*.ipch
+*.aps
+*.ncb
+*.sdf
+*.opensdf
+*.tlog
+*.log
+*.cache
+*.o
+*.a
+*.lib
+*.exp
+*.iobj
+*.ipdb
+
+# Ignore OpenCL-related binary files
+*.clbin
+
+# Ignore compiled binaries
+*.out
+*.so
+*.pyc
+*.class
+
+# Ignore system-specific files
+Thumbs.db
+.DS_Store
+
+# Ignore CMake build files (if applicable)
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
