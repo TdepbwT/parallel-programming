@@ -43,6 +43,7 @@ int main(int argc, char** argv) {
 	//detect any potential exceptions
 	try {
 		CImg<unsigned char> image_input(image_filename.c_str());
+		CImg<unsigned char> input_image_8; //create an 8 bit image
 		CImgDisplay disp_input(image_input, "test.pgm");
 		int binSize = 256;  //initialise binsize to 256, which is an 8 bit image
 
@@ -77,22 +78,57 @@ int main(int argc, char** argv) {
 
 		//Part 4 - allocate memory to histogram and cumulative histogram
 
-				//4.1 Copy images to device memory
+		// create type for vector
+		typedef int vec_type;
+		//create histogram vector
+		std::vector<vec_type> histogram(binSize, 0); // histogram vector
+		//get size
+		size_t histogram_size = H.size() * sizeof(vec_type);
+
+		// create cumulative histogram vector
+		std::vector<vec_type> cum_histogram(binSize, 0); // cumulative histogram vector
+		//get size
+		size_t cum_histogram_size = cH.size() * sizeof(vec_type);
+
+		
+		//4.1 create buffers for image input and output
+		cl::Buffer buffer_image_input(context, CL_MEM_READ_ONLY, image_input.size()); // image buffer
+
+		cl::Buffer buffer_histo_output(context, CL_MEM_READ_WRITE, histo_size); // histogram buffer
+
+		cl::Buffer buffer_cum_histo_output(context, CL_MEM_READ_WRITE, cum_histo_size); // cumulative histogram buffer
+
+		cl::Buffer buffer_lookup_output(context, CL_MEM_READ_WRITE, lookup_size); // lookup table buffer
+
+		cl::Buffer buffer_image_output(context, CL_MEM_READ_WRITE, image_input.size()); // output image buffer
+
+
+		//4.2 Copy images to device memory
 		queue.enqueueWriteBuffer(dev_image_input, CL_TRUE, 0, image_input.size(), &image_input.data()[0]);
-		//		queue.enqueueWriteBuffer(dev_convolution_mask, CL_TRUE, 0, convolution_mask.size()*sizeof(float), &convolution_mask[0]);
+	
 
-				//4.2 Setup and execute the kernel (i.e. device code)
-		cl::Kernel kernel = cl::Kernel(program, "rgb2grey");
-		kernel.setArg(0, dev_image_input);
-		kernel.setArg(1, dev_image_output);
-		//		kernel.setArg(2, dev_convolution_mask);
+		// 4.3 Setup and execute the kernels for each step
 
-		queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(image_input.size()), cl::NullRange);
+		//histogram kernel
 
-		vector<unsigned char> output_buffer(image_input.size());
-		//4.3 Copy the result from device to host
-		queue.enqueueReadBuffer(dev_image_output, CL_TRUE, 0, output_buffer.size(), &output_buffer.data()[0]);
+		// create histogram kernel to work out the histogram of the image
+		cl::Kernel histogramKernel = cl::Kernel(program, "histogram");
 
+		// set kernel arguments to take in image and output histogram vector
+		histogramKernel.setArg(0, buffer_image_input);
+		histogramKernel.setArg(1, buffer_histo_output);
+
+		// create event for histogram kernel
+		cl::Event histogram_event;
+
+		queue.enqueueNDRangeKernel(histogramKernel, cl::NullRange, cl::NDRange(image_input.size()), cl::NullRange, NULL, &histogram_event);
+		queue.enqueueReadBuffer(buffer_histo_output, CL_TRUE, 0, histo_size)
+
+
+
+
+
+		// display final normalised image
 		CImg<unsigned char> output_image(output_buffer.data(), image_input.width(), image_input.height(), image_input.depth(), image_input.spectrum());
 		CImgDisplay disp_output(output_image, "output");
 

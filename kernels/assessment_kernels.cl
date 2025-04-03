@@ -1,4 +1,4 @@
-kernel void histo(global const int* A, global int* H) { // histogram kernel taken from tutorial 3
+kernel void histogram(global const int* A, global int* H) { // histogram kernel taken from tutorial 3
 	int id = get_global_id(0);
 
 	//assumes that H has been initialised to 0
