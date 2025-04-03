@@ -1,6 +1,9 @@
 /*
+ CMP3752M - Parallel Programming
 David A - 26321509
-blah wait huh
+This program uses code adapted from https://github.com/charles-fox/OpenCL-Tutorials. The base template was tutorial 2.cpp
+The program uses kernels that use atomic operations that were used from tutorial 3 to execute on the input image; this can be changed using the -f flag.
+This program will firstly transform an image into a histogram, which is then transformed into a cumulative histogram using atomic functions as well. This then gets put into a lookup table where it gets normalised and then uses the final kernel to transform the input image into a normalised image that will be outputted by the end. The execution times and memory transfers are recorded as well as total execution time.
 */
 
 #include <iostream>
@@ -17,7 +20,7 @@ void print_help() {
 	std::cerr << "  -p : select platform " << std::endl;
 	std::cerr << "  -d : select device" << std::endl;
 	std::cerr << "  -l : list all platforms and devices" << std::endl;
-	std::cerr << "  -f : input image file (default: test.ppm)" << std::endl;
+	std::cerr << "  -f : input image file (default: test.pgm)" << std::endl;
 	std::cerr << "  -h : print this message" << std::endl;
 }
 
@@ -40,15 +43,12 @@ int main(int argc, char** argv) {
 	//detect any potential exceptions
 	try {
 		CImg<unsigned char> image_input(image_filename.c_str());
-		CImgDisplay disp_input(image_input, "input");
+		CImgDisplay disp_input(image_input, "test.pgm");
+		int binSize = 256;  //initialise binsize to 256, which is an 8 bit image
 
-		//a 3x3 convolution mask implementing an averaging filter
-		std::vector<float> convolution_mask = { 1.f / 9, 1.f / 9, 1.f / 9,
-												1.f / 9, 1.f / 9, 1.f / 9,
-												1.f / 9, 1.f / 9, 1.f / 9 };
+		//host operations
 
-		//Part 3 - host operations
-		//3.1 Select computing devices
+		//select the platform and device
 		cl::Context context = GetContext(platform_id, device_id);
 
 		//display the selected device
@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
 
 		cl::Program program(context, sources);
 
-		//build and debug the kernel code
+		//build and debug the kernel code, throw errors if any
 		try {
 			program.build();
 		}
@@ -75,12 +75,7 @@ int main(int argc, char** argv) {
 			throw err;
 		}
 
-		//Part 4 - device operations
-
-		//device - buffers
-		cl::Buffer dev_image_input(context, CL_MEM_READ_ONLY, image_input.size());
-		cl::Buffer dev_image_output(context, CL_MEM_READ_WRITE, image_input.size()); //should be the same as input image
-		//		cl::Buffer dev_convolution_mask(context, CL_MEM_READ_ONLY, convolution_mask.size()*sizeof(float));
+		//Part 4 - allocate memory to histogram and cumulative histogram
 
 				//4.1 Copy images to device memory
 		queue.enqueueWriteBuffer(dev_image_input, CL_TRUE, 0, image_input.size(), &image_input.data()[0]);
