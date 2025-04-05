@@ -17,3 +17,14 @@ kernel void cumulative_histo(global const int*A, global int* cH, const int binSi
 		atomic_add(&cH[i], A[id]/3);
 	}
 }
+
+kernel void lookuptable(global const int* input, global const int* lookup, global int* output, const int size) // guess what this does
+{
+	int id = get_global_id(0);
+
+	if (id < size)
+	{
+		int index = input[id];
+		output[id] = lookup[index];
+	}
+}

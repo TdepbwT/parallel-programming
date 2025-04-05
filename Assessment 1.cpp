@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
 	//Part 1 - handle command line options such as device selection, verbosity, etc.
 	int platform_id = 0;
 	int device_id = 0;
-	string image_filename = "test.ppm";
+	string image_filename = "test.pgm";
 
 	for (int i = 1; i < argc; i++) {
 		if ((strcmp(argv[i], "-p") == 0) && (i < (argc - 1))) { platform_id = atoi(argv[++i]); }
@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
 
 
 		//4.2 Copy images to device memory
-		queue.enqueueWriteBuffer(dev_image_input, CL_TRUE, 0, image_input.size(), &image_input.data()[0]);
+		queue.enqueueWriteBuffer(buffer_image_input, CL_TRUE, 0, image_input.size(), &image_input.data()[0]);
 	
 
 		// 4.3 Setup and execute the kernels for each step
@@ -121,8 +121,22 @@ int main(int argc, char** argv) {
 		// create event for histogram kernel
 		cl::Event histogram_event;
 
+		// add kernel to queue
 		queue.enqueueNDRangeKernel(histogramKernel, cl::NullRange, cl::NDRange(image_input.size()), cl::NullRange, NULL, &histogram_event);
-		queue.enqueueReadBuffer(buffer_histo_output, CL_TRUE, 0, histo_size)
+		queue.enqueueReadBuffer(buffer_histo_output, CL_TRUE, 0, histo_size);
+
+		// read result into output buffer
+		queue.enqueueFillBuffer(buffer_cum_histo_output, 0, 0, cum_histogram_size);
+
+		//set up cumulative histogram kernel
+		cl::Kernel cum_histogramKernel = cl::Kernel(program, "cumulative_histo");
+
+		// set kernel arguments to take in histogram and output cumulative histogram vector
+		cum_histogramKernel.setArg(0, buffer_histo_output);
+		cum_histogramKernel.setArg(1, buffer_cum_histo_output);
+		cum_histogramKernel.setArg(2, binSize);
+
+
 
 
 
