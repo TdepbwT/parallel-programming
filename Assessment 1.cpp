@@ -83,20 +83,25 @@ int main(int argc, char** argv) {
 		//create histogram vector
 		std::vector<vec_type> histogram(binSize, 0); // histogram vector
 		//get size
-		size_t histogram_size = H.size() * sizeof(vec_type);
+		size_t histogram_size = histogram.size() * sizeof(vec_type);
 
 		// create cumulative histogram vector
 		std::vector<vec_type> cum_histogram(binSize, 0); // cumulative histogram vector
 		//get size
-		size_t cum_histogram_size = cH.size() * sizeof(vec_type);
+		size_t cum_histogram_size = cum_histogram.size() * sizeof(vec_type);
+
+		// create lookup table vector
+		std::vector<vec_type> lookup(binSize, 0); // lookup table vector
+		//get size
+		size_t lookup_size = lookup.size() * sizeof(vec_type);
 
 		
 		//4.1 create buffers for image input and output
 		cl::Buffer buffer_image_input(context, CL_MEM_READ_ONLY, image_input.size()); // image buffer
 
-		cl::Buffer buffer_histo_output(context, CL_MEM_READ_WRITE, histo_size); // histogram buffer
+		cl::Buffer buffer_histo_output(context, CL_MEM_READ_WRITE, histogram_size); // histogram buffer
 
-		cl::Buffer buffer_cum_histo_output(context, CL_MEM_READ_WRITE, cum_histo_size); // cumulative histogram buffer
+		cl::Buffer buffer_cum_histo_output(context, CL_MEM_READ_WRITE, cum_histogram_size); // cumulative histogram buffer
 
 		cl::Buffer buffer_lookup_output(context, CL_MEM_READ_WRITE, lookup_size); // lookup table buffer
 
@@ -123,7 +128,7 @@ int main(int argc, char** argv) {
 
 		// add kernel to queue
 		queue.enqueueNDRangeKernel(histogramKernel, cl::NullRange, cl::NDRange(image_input.size()), cl::NullRange, NULL, &histogram_event);
-		queue.enqueueReadBuffer(buffer_histo_output, CL_TRUE, 0, histo_size);
+		queue.enqueueReadBuffer(buffer_histo_output, CL_TRUE, 0, histogram_size, &histogram);
 
 		// read result into output buffer
 		queue.enqueueFillBuffer(buffer_cum_histo_output, 0, 0, cum_histogram_size);
@@ -136,6 +141,41 @@ int main(int argc, char** argv) {
 		cum_histogramKernel.setArg(1, buffer_cum_histo_output);
 		cum_histogramKernel.setArg(2, binSize);
 
+		// create event for cumulative histogram kernel
+		cl::Event cum_histogram_event;
+		// add kernel to queue
+		queue.enqueueNDRangeKernel(cum_histogramKernel, cl::NullRange, cl::NDRange(binSize), cl::NullRange, NULL, &cum_histogram_event);
+		queue.enqueueReadBuffer(buffer_cum_histo_output, CL_TRUE, 0, cum_histogram_size, &cum_histogram[0]);
+
+		// read result into output buffer
+		queue.enqueueFillBuffer(buffer_lookup_output, 0, 0, lookup_size);
+
+		// event for lookup kernel
+		cl::Kernel lookupKernel = cl::Kernel(program, "lookuptable");
+
+		// set kernel arguments to take in cumulative histogram and output lookup table vector
+		lookupKernel.setArg(0, buffer_cum_histo_output);
+		lookupKernel.setArg(1, buffer_lookup_output);
+
+		// event for lookup kernel, add to queue
+		cl::Event lookup_event;
+		queue.enqueueNDRangeKernel(lookupKernel, cl::NullRange, cl::NDRange(lookup_size), cl::NullRange, NULL, &lookup_event);
+		queue.enqueueReadBuffer(buffer_lookup_output, CL_TRUE, 0, lookup_size, &lookup[0]);
+
+		// event for image output
+		cl::Kernel createimgKernel = cl::Kernel(program, "createimg");
+
+		// setup normalised histogram through lookup table
+		createimgKernel.setArg(0, buffer_image_input);
+		createimgKernel.setArg(1, buffer_lookup_output);
+		createimgKernel.setArg(2, buffer_image_output);
+
+		// setup image output
+
+		cl::Event createimg_event;
+		queue.enqueueNDRangeKernel(createimgKernel, cl::NullRange, cl::NDRange(image_input.size()), cl::NullRange, NULL, &createimg_event);
+		vector<unsigned char> buffer_image_output_vector(image_input.size());
+		queue.enqueueReadBuffer(buffer_image_output, CL_TRUE, 0, buffer_image_output_vector.size(), &buffer_image_output_vector.data()[0]);
 
 
 
@@ -143,7 +183,7 @@ int main(int argc, char** argv) {
 
 
 		// display final normalised image
-		CImg<unsigned char> output_image(output_buffer.data(), image_input.width(), image_input.height(), image_input.depth(), image_input.spectrum());
+		CImg<unsigned char> output_image(buffer_image_output_vector.data(), image_input.width(), image_input.height(), image_input.depth(), image_input.spectrum());
 		CImgDisplay disp_output(output_image, "output");
 
 		while (!disp_input.is_closed() && !disp_output.is_closed()

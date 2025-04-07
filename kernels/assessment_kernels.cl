@@ -18,13 +18,20 @@ kernel void cumulative_histo(global const int*A, global int* cH, const int binSi
 	}
 }
 
-kernel void lookuptable(global const int* input, global const int* lookup, global int* output, const int size) // guess what this does
+kernel void lookuptable(global const int* A, global int* B) // guess what this does
 {
+	//create lookup value with values for each pixel
 	int id = get_global_id(0);
 
-	if (id < size)
-	{
-		int index = input[id];
-		output[id] = lookup[index];
-	}
+	B[id] = A[id] * (double)255 / A[255];
+}
+
+// kernel to adjust input image with normalised histogram from lookup table
+// casts onto image to produce output image
+
+kernel void createimg(global uchar* A, global int* lookup, global uchar* nImg)
+{
+	int id = get_global_id(0);
+	//create new image with normalised histogram
+	nImg[id] = (uchar)lookup[A[id]];
 }
