@@ -125,7 +125,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Assessment 1.cpp" />
+    <ClCompile Include="assessment1.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\CImg.h" />

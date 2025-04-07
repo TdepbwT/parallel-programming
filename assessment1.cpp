@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
         cl::Event createimg_event;
         queue.enqueueNDRangeKernel(createimgKernel, cl::NullRange, cl::NDRange(image_input.size()), cl::NullRange, NULL, &createimg_event);
         std::vector<unsigned char> buffer_image_output_vector(image_input.size());
-        queue.enqueueReadBuffer(buffer_image_output, CL_TRUE, 0, buffer_image_output_vector.size(), &buffer_image_output_vector.data()[0]);
+        queue.enqueueReadBuffer(buffer_image_output, CL_TRUE, 0, buffer_image_output_vector.size(), buffer_image_output_vector.data());
 
         // Display final normalized image
         CImg<unsigned char> output_image(buffer_image_output_vector.data(), image_input.width(), image_input.height(), image_input.depth(), image_input.spectrum());
